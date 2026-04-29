@@ -1,0 +1,45 @@
+name: Sync SchoolTracs Calendar
+
+on:
+  schedule:
+    # Twice a day: 8 AM and 8 PM Hong Kong time (UTC+8)
+    # = 00:00 UTC and 12:00 UTC
+    - cron: "0 0,12 * * *"
+  workflow_dispatch:  # allow manual runs from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run sync
+        env:
+          ST_EMAIL: ${{ secrets.ST_EMAIL }}
+          ST_PASSWORD: ${{ secrets.ST_PASSWORD }}
+          ST_STAFF_ID: ${{ secrets.ST_STAFF_ID }}
+          ST_CENTER_ID: ${{ secrets.ST_CENTER_ID }}
+          ST_ORG: ${{ secrets.ST_ORG }}
+        run: python sync.py
+
+      - name: Commit updated calendar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/schooltracs.ics
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update calendar [skip ci]"
+            git push
+          fi
